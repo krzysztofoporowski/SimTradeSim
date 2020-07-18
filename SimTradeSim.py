@@ -10,7 +10,6 @@ import pickle
 from datetime import date
 from pathlib import Path
 import quandl
-import pandas_datareader as web
 import pandas as pd
 
 
@@ -67,7 +66,7 @@ def get_own_data(equity_name, quandl_api_token):
         with open(file_name, 'rb') as opened_file:
             data = pickle.load(opened_file)
         # print('data from file {} used'.format(opened_file))
-    except Exception:
+    except FileNotFoundError:
         quandl.ApiConfig.api_key = quandl_api_token
         # for equity_name in equity_names:
         quandl_query = 'WSE/' + equity_name
@@ -324,7 +323,7 @@ class Transaction:
 
 def get_date_only(row):
     '''
-    To process index date/time value from Quandl to get date only
+    To process index date/time value from Quandl to get only date, as a string
     '''
     date_time = row.name
     date_time = pd.to_datetime(date_time)
