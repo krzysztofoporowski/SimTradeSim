@@ -2,7 +2,8 @@
 """
 Created on Thu Jul 16 10:11:54 2020
 
-@author: krzysztof.oporowski
+@author: Krzysztof Oporowski
+krzysztof.oporowski@gmail.com
 """
 
 import numbers
