@@ -7,116 +7,10 @@ krzysztof.oporowski@gmail.com
 """
 
 import numbers
-import pickle
-from datetime import date
-from pathlib import Path
-import quandl
 import pandas as pd
 
 
-def create_directory(directory_name):
-    '''
-    Function to create directory for storing data
-
-    Parameters
-    ----------
-    directory_name : string
-        Directory name.
-
-    Returns
-    -------
-    None.
-
-    '''
-    path_to_check = Path(directory_name)
-    if path_to_check.exists():
-        print('Directory {} already exists'.format(directory_name))
-        return True
-    else:
-        print('Attempting to create path')
-        try:
-            path_to_check.mkdir()
-            return True
-        except FileExistsError:
-            print('Strange, directory {} cannot be created'.format(
-                directory_name))
-            return False
-
-
-def get_own_data(equity_name, quandl_api_token):
-    '''
-    Function read data of the signle quity using the Quandl. It requires the
-    Quandl API to be provided, to make sure that more than 50 queries are
-    allowed. Function returns the Pandas Panel data structure.
-    Parameters:
-    -----------
-    equity_names:     String, used for polish stocks. On the Quandl
-                      platform polish stocks are listed under the 'WSE/'
-                      subfolder (Warsaw Stock Exchnage). Equity_names needs to
-                      be the list of strings without the 'WSE/' (which is added
-                      by the function).
-    quandl_API_token: string, representing the Quandl API token. For more
-                      details refer to the http://quandl.com
-    Returns:
-    --------
-    Pandas DataFrame with one entitie's data
-    '''
-    todays_date = str(date.today())
-    file_name = 'Data/' + equity_name + '-' + todays_date + '.pickle'
-    try:
-        with open(file_name, 'rb') as opened_file:
-            data = pickle.load(opened_file)
-        # print('data from file {} used'.format(opened_file))
-    except FileNotFoundError:
-        quandl.ApiConfig.api_key = quandl_api_token
-        # for equity_name in equity_names:
-        quandl_query = 'WSE/' + equity_name
-        data = quandl.get(quandl_query)
-        data.drop(['%Change', '# of Trades', 'Turnover (1000)'],
-                  axis=1, inplace=True)
-        data.columns = ['open', 'high', 'low', 'close', 'volume']
-        data.index.names = ['date']
-        # data = data[equity_name].resample('1d').mean()
-        data.fillna(method='ffill', inplace=True)
-        # print('Data for {} collected'.format(quandl_query))
-        # save data to avoid downloading again today
-        if create_directory('Data'):
-            with open(file_name, 'wb') as opened_file:
-                pickle.dump(data, opened_file)
-            # print('Data from Quandl downloaded')
-    return data
-
-
-def get_data_from_bossa(stooq_name):
-    '''
-    Parameters
-    ----------
-    stooq_name : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    data : TYPE
-        DESCRIPTION.
-
-    '''
-    file_name = 'Data/' + stooq_name + '.mst'
-    data = pd.read_csv(file_name,
-                       usecols=[1, 2, 3, 4, 5, 6],
-                       parse_dates=[0],
-                       index_col=[0],
-                       header=0,
-                       names=['date',
-                              'open',
-                              'high',
-                              'low',
-                              'close',
-                              'volume']
-                       )
-    return data
-
-
-def define_gl(gl):
+def define_gl(general_ledger):
     '''
     Function returns Pandas dataframe where all transactions are stored
     '''
@@ -124,7 +18,7 @@ def define_gl(gl):
             'open_commission', 'open_total', 'SL_date', 'SL', 'close_date',
             'close_price', 'close_value', 'close_commission', 'close_total',
             'trans_result']
-    transactions = pd.DataFrame(gl, columns=cols)
+    transactions = pd.DataFrame(general_ledger, columns=cols)
     return transactions
 
 
@@ -183,12 +77,12 @@ class Transaction:
         self.open_total = 0  # total value of the stocks price + commision
         self.close_total = 0
         self.trans_result = 0
-        self.SL = 0  # if below this value, stocks are sold Stop Loss
+        self.stop_loss = 0  # if below this value, stocks are sold Stop Loss
         self.stop_loss_date = ''  # stores the stop loss date
         self.trans_id = trans_numb  # ID of the transaction
         # self.trans_number = self.trans_number + 1 # ID for next transaction
         self.in_transaction = False  # transaction indicator
-        self.gl = transaction_gl
+        self.general_ledger = transaction_gl
 
     def how_many_stocks(self, price, budget):
         '''
@@ -197,7 +91,7 @@ class Transaction:
         number = int((budget - budget * self.comm_rate) / price)
         return number
 
-    def open_transaction(self, number, price, date_open):
+    def open_transaction(self, number, price, date_open, mode=False):
         '''
         Method to buy stocks.
         Parameters:
@@ -216,9 +110,9 @@ class Transaction:
             self.open_total = self.open_value + self.comm_open_value
             self.in_transaction = True
             self.open_date = date_open
-            self.register_transaction(verbose=False)
+            self.register_transaction(verbose=mode)
 
-    def set_sl(self, sl_type, sl_factor, price, date_sl):
+    def set_sl(self, sl_type, sl_factor, price, date_sl, mode=False):
         '''
         Functions sets the SL on the price.
         Parameters:
@@ -235,30 +129,30 @@ class Transaction:
         if sl_type not in ['atr', 'percent']:
             print('Value {} of sl_type is not appropriate. Use "atr" or \
                   "percent" only. Setting SL to 0'.format(sl_type))
-            self.SL = 0
+            self.stop_loss = 0
         elif not isinstance(sl_factor, numbers.Number):
             print('number of type int or float is expected, not {}'.
                   format(type(sl_factor)))
         else:
             if sl_type == 'atr':
                 new_sl = price - sl_factor
-                if new_sl > self.SL:
-                    self.SL = new_sl
+                if new_sl > self.stop_loss:
+                    self.stop_loss = new_sl
                     self.stop_loss_date = date_sl
-                    self.register_transaction(verbose=False)
+                    self.register_transaction(verbose=mode)
             else:
                 if sl_factor < 0 or sl_factor > 100:
                     print('sl_factor in percent mode must be 0 -100 value. \
                           Setting SL to 0 PLN.')
-                    self.SL = 0
+                    self.stop_loss = 0
                 else:
                     new_sl = price - price * (sl_factor / 100)
-                    if new_sl > self.SL:
-                        self.SL = new_sl
+                    if new_sl > self.stop_loss:
+                        self.stop_loss = new_sl
                         self.stop_loss_date = date_sl
-                        self.register_transaction(verbose=False)
+                        self.register_transaction(verbose=mode)
 
-    def close_transaction(self, price, date_close):
+    def close_transaction(self, price, date_close, mode=False):
         '''
         Method to close the transaction
         '''
@@ -271,7 +165,7 @@ class Transaction:
             self.close_total = self.close_value - self.comm_close_value
             self.trans_result = self.close_total - self.open_total
             self.close_date = date_close
-            self.register_transaction(verbose=False)
+            self.register_transaction(verbose=mode)
 
     def reset_values(self):
         '''
@@ -289,7 +183,7 @@ class Transaction:
         self.open_total = 0
         self.close_total = 0
         self.trans_result = 0
-        self.SL = 0
+        self.stop_loss = 0
         self.stop_loss_date = ''
         self.in_transaction = False
         self.trans_id = self.trans_id + 1
@@ -308,7 +202,7 @@ class Transaction:
                   '''.format(self.trans_id, self.open_date, self.stocks_number,
                              self.open_price, self.open_value,
                              self.comm_open_value, self.open_total,
-                             self.stop_loss_date, self.SL,
+                             self.stop_loss_date, self.stop_loss,
                              self.close_date, self.close_price,
                              self.close_value, self.comm_close_value,
                              self.close_total, self.trans_result)
@@ -316,20 +210,10 @@ class Transaction:
         row = [
             self.trans_id, self.open_date, self.stocks_number,
             self.open_price, self.open_value, self.comm_open_value,
-            self.open_total, self.stop_loss_date, self.SL,
+            self.open_total, self.stop_loss_date, self.stop_loss,
             self.close_date, self.close_price, self.close_value,
             self.comm_close_value, self.close_total, self.trans_result]
-        self.gl.append(row)
-
-
-def get_date_only(row):
-    '''
-    To process index date/time value from Quandl to get only date, as a string
-    '''
-    date_time = row.name
-    date_time = pd.to_datetime(date_time)
-    date_only = date_time.date()
-    return date_only
+        self.general_ledger.append(row)
 
 
 if __name__ == '__main__':
