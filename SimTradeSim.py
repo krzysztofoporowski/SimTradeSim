@@ -91,7 +91,7 @@ class Transaction:
         number = int((budget - budget * self.comm_rate) / price)
         return number
 
-    def open_transaction(self, number, price, date_open, mode=False):
+    def open_transaction(self, number, price, date_open, be_verbose=False):
         '''
         Method to buy stocks.
         Parameters:
@@ -99,6 +99,7 @@ class Transaction:
         numb      - number of stocks bought in single transaction
         buy_price - stock's buy price
         date      - date and time of open
+        be_verbose   - to print information or not
         '''
         if not self.in_transaction:
             self.stocks_number = number
@@ -110,9 +111,9 @@ class Transaction:
             self.open_total = self.open_value + self.comm_open_value
             self.in_transaction = True
             self.open_date = date_open
-            self.register_transaction(verbose=mode)
+            self.register_transaction(verbose=be_verbose)
 
-    def set_sl(self, sl_type, sl_factor, price, date_sl, mode=False):
+    def set_sl(self, sl_type, sl_factor, price, date_sl, be_verbose=False):
         '''
         Functions sets the SL on the price.
         Parameters:
@@ -124,7 +125,8 @@ class Transaction:
                     if sl_type = 'percent' it is just the value of the
                     percent, between 0 and 100
         price     - current price
-        date_SL      - date time of SL
+        date_SL   - date time of SL
+        be_verbose   - to print comments about transaction or not
         '''
         if sl_type not in ['atr', 'percent']:
             print('Value {} of sl_type is not appropriate. Use "atr" or \
@@ -139,7 +141,7 @@ class Transaction:
                 if new_sl > self.stop_loss:
                     self.stop_loss = new_sl
                     self.stop_loss_date = date_sl
-                    self.register_transaction(verbose=mode)
+                    self.register_transaction(verbose=be_verbose)
             else:
                 if sl_factor < 0 or sl_factor > 100:
                     print('sl_factor in percent mode must be 0 -100 value. \
@@ -150,9 +152,9 @@ class Transaction:
                     if new_sl > self.stop_loss:
                         self.stop_loss = new_sl
                         self.stop_loss_date = date_sl
-                        self.register_transaction(verbose=mode)
+                        self.register_transaction(verbose=be_verbose)
 
-    def close_transaction(self, price, date_close, mode=False):
+    def close_transaction(self, price, date_close, be_verbose=False):
         '''
         Method to close the transaction
         '''
@@ -165,7 +167,7 @@ class Transaction:
             self.close_total = self.close_value - self.comm_close_value
             self.trans_result = self.close_total - self.open_total
             self.close_date = date_close
-            self.register_transaction(verbose=mode)
+            self.register_transaction(verbose=be_verbose)
 
     def reset_values(self):
         '''
@@ -188,7 +190,7 @@ class Transaction:
         self.in_transaction = False
         self.trans_id = self.trans_id + 1
 
-    def register_transaction(self, verbose=True):
+    def register_transaction(self, verbose):
         '''
         Function registers the transaction details in the general ledger.
         '''
