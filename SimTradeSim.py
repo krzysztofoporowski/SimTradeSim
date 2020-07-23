@@ -113,24 +113,26 @@ class Transaction:
             self.open_date = date_open
             self.register_transaction(verbose=be_verbose)
 
-    def set_sl(self, sl_type, sl_factor, price, date_sl, be_verbose=False):
+    def set_sl(self, sl_type, sl_factor, date_sl, price=0, be_verbose=False):
         '''
         Functions sets the SL on the price.
         Parameters:
         -----------
-        sl_type   - string, 2 possibilities
+        sl_type   - string, 3 possibilities
                       - atr - stop loss based on ATR calculations
                       - percent - stop loss based on the percentage slippage
+                      - fixed - stop loss based on fixed value
         sl_factor - float, if sl_type = 'atr', than is the ATR value,
                     if sl_type = 'percent' it is just the value of the
-                    percent, between 0 and 100
-        price     - current price
+                    percent, between 0 and 100, when sl_type = 'fixed' it is
+                    the value of the stop loss
+        price     - current price, default value set for sl_factor='fixed'
         date_SL   - date time of SL
         be_verbose   - to print comments about transaction or not
         '''
-        if sl_type not in ['atr', 'percent']:
-            print('Value {} of sl_type is not appropriate. Use "atr" or \
-                  "percent" only. Setting SL to 0'.format(sl_type))
+        if sl_type not in ['atr', 'percent', 'fixed']:
+            print('Value {} of sl_type is not appropriate. Use "atr", "fixed" \
+                  or "percent" only. Setting SL to 0'.format(sl_type))
             self.stop_loss = 0
         elif not isinstance(sl_factor, numbers.Number):
             print('number of type int or float is expected, not {}'.
@@ -142,6 +144,10 @@ class Transaction:
                     self.stop_loss = new_sl
                     self.stop_loss_date = date_sl
                     self.register_transaction(verbose=be_verbose)
+            elif sl_type == 'fixed':
+                self.stop_loss = sl_factor
+                self.stop_loss_date = date_sl
+                self.register_transaction(verbose=be_verbose)
             else:
                 if sl_factor < 0 or sl_factor > 100:
                     print('sl_factor in percent mode must be 0 -100 value. \
