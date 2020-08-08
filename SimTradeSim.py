@@ -17,7 +17,8 @@ def define_gl(general_ledger):
     cols = ['id', 'open_date', 'stocks_number', 'open_price', 'open_value',
             'open_commission', 'open_total', 'SL_date', 'SL', 'close_date',
             'close_price', 'close_value', 'close_commission', 'close_total',
-            'trans_result']
+            'trans_result', 'max_drawdown_pln', 'max_drawdown_perc',
+            'max_gain_pln', 'max_gain_proc']
     transactions = pd.DataFrame(general_ledger, columns=cols)
     return transactions
 
@@ -83,6 +84,13 @@ class Transaction:
         # self.trans_number = self.trans_number + 1 # ID for next transaction
         self.in_transaction = False  # transaction indicator
         self.general_ledger = transaction_gl
+        # added on 02.08.2020 (EU format)
+        self.max_drawdown = 0
+        self.max_drawdown_perc = 0
+        self.max_gain = 0
+        self.max_gain_perc = 0 
+        self.current_value = 0
+        self.risk = 0
 
     def how_many_stocks(self, price, budget):
         '''
@@ -145,9 +153,10 @@ class Transaction:
                     self.stop_loss_date = date_sl
                     self.register_transaction(verbose=be_verbose)
             elif sl_type == 'fixed':
-                self.stop_loss = sl_factor
-                self.stop_loss_date = date_sl
-                self.register_transaction(verbose=be_verbose)
+                if sl_factor > self.stop_loss:
+                    self.stop_loss = sl_factor
+                    self.stop_loss_date = date_sl
+                    self.register_transaction(verbose=be_verbose)
             else:
                 if sl_factor < 0 or sl_factor > 100:
                     print('sl_factor in percent mode must be 0 -100 value. \
@@ -195,6 +204,13 @@ class Transaction:
         self.stop_loss_date = ''
         self.in_transaction = False
         self.trans_id = self.trans_id + 1
+        # Added on 02.08.2020
+        self.max_drawdown = 0
+        self.max_drawdown_perc = 0
+        self.max_gain = 0
+        self.max_gain_perc = 0
+        self.current_value = 0
+        self.risk = 0
 
     def register_transaction(self, verbose):
         '''
@@ -203,25 +219,78 @@ class Transaction:
         if verbose:
             print('''
                   Transakcja numer: {}, data otwarcia: {} ilosc akcji: {},
-                  cena otwarcia {}, wartosc otwarcia: {},prowizja otwarcia: {},
-                  koszt otwarcia {}, data stopa: {}, SL: {},
-                  data zamknięcia: {}, cena zamkn: {}, wartosc zamkn: {},
-                  prowizja zamkn: {}, koszt_zamkn: {}, wynik_transkacji: {}
+                  cena otwarcia {}, wartosc otwarcia: {:.2f},
+                  prowizja otwarcia: {:.2f}, koszt otwarcia {:.2f}, 
+                  data stopa: {}, SL: {:.2f}, data zamknięcia: {}, 
+                  cena zamkn: {}, wartosc zamkn: {:.2f}, 
+                  prowizja zamkn: {:.2f}, koszt_zamkn: {:.2f}, 
+                  wynik_transkacji: {:.2f}, maks obs. kapitału PLN: {:.2f},
+                  maks. obs. kapitalu %: {:.2f}, 
+                  maks. zysk chwilowy PLN: {:.2f}, 
+                  maks. zysk chwilowy %: {:.2f}
                   '''.format(self.trans_id, self.open_date, self.stocks_number,
                              self.open_price, self.open_value,
                              self.comm_open_value, self.open_total,
                              self.stop_loss_date, self.stop_loss,
                              self.close_date, self.close_price,
                              self.close_value, self.comm_close_value,
-                             self.close_total, self.trans_result)
+                             self.close_total, self.trans_result,
+                             self.max_drawdown, self.max_drawdown_perc,
+                             self.max_gain, self.max_gain_perc)
                   )
         row = [
             self.trans_id, self.open_date, self.stocks_number,
             self.open_price, self.open_value, self.comm_open_value,
             self.open_total, self.stop_loss_date, self.stop_loss,
             self.close_date, self.close_price, self.close_value,
-            self.comm_close_value, self.close_total, self.trans_result]
+            self.comm_close_value, self.close_total, self.trans_result,
+            self.max_drawdown, self.max_drawdown_perc, self.max_gain,
+            self.max_gain_perc]
         self.general_ledger.append(row)
+
+        # Added on 02.08.2020 (EU date format)
+    def curr_value(self, price, be_verbose=False):
+        '''
+        Method to calculate current value of opened trade
+        '''
+        if self.in_transaction:
+            curr_val = price * self.stocks_number
+            curr_comm = curr_val * self.comm_rate
+            if curr_comm < 3:
+                curr_comm = 3
+            curr_val = curr_val - curr_comm
+            diff = curr_val - self.open_total
+            self.current_value = curr_val
+            if diff < self.max_drawdown:
+                self.max_drawdown = diff
+                #diff = self.max_drawdown - self.open_total
+                self.max_drawdown_perc = 100 * diff / self.open_total
+            if diff > self.max_gain:
+                self.max_gain = diff
+                #diff = self.max_gain - self.open_total
+                self.max_gain_perc = 100 * diff / self.open_total
+            if be_verbose:
+                print('Drowdawn: {:.2f} PLN {:.2f} %, \
+                        Max gain: {:.2f} PLN {:.2f} %'.format(self.max_drawdown,
+                                                      self.max_drawdown_perc,
+                                                      self.max_gain,
+                                                      self.max_gain_perc))
+
+    def define_risk(self, verbose=False):
+        '''
+        Method to calculate initial risk of a trade.
+        '''
+        initial_stop = self.stocks_number * self.stop_loss
+        comm = initial_stop * self.comm_rate
+        if comm < 3:
+            comm = 3
+        initial_stop = initial_stop - comm
+        self.risk = self.open_total - initial_stop
+        risk_perc = -100 * self.risk / self.open_total
+        if verbose:
+            print('Initial risk: {:.2f} PLN, {:.2f}%'.format(self.risk,
+                                                             risk_perc))
+
 
 
 if __name__ == '__main__':
