@@ -15,10 +15,11 @@ def define_gl(general_ledger):
     Function returns Pandas dataframe where all transactions are stored
     '''
     cols = ['id', 'open_date', 'stocks_number', 'open_price', 'open_value',
-            'open_commission', 'open_total', 'SL_date', 'SL', 'close_date',
-            'close_price', 'close_value', 'close_commission', 'close_total',
-            'trans_result', 'max_drawdown_pln', 'max_drawdown_perc',
-            'max_gain_pln', 'max_gain_proc']
+            'open_commission', 'open_total', 'riks', 'current_value',
+            'SL_date', 'SL', 'close_date', 'close_price', 'close_value',
+            'close_commission', 'close_total', 'trans_result',
+            'max_drawdown_pln', 'max_drawdown_perc', 'max_drawdown_date',
+            'max_gain_pln', 'max_gain_proc', 'max_gain_date']
     transactions = pd.DataFrame(general_ledger, columns=cols)
     return transactions
 
@@ -91,6 +92,9 @@ class Transaction:
         self.max_gain_perc = 0 
         self.current_value = 0
         self.risk = 0
+        # added on 08.08.2020 (EU format)
+        self.max_drawdown_date = ''
+        self.max_gain_date = ''
 
     def how_many_stocks(self, price, budget):
         '''
@@ -211,6 +215,9 @@ class Transaction:
         self.max_gain_perc = 0
         self.current_value = 0
         self.risk = 0
+        # Added on 08..08.2020
+        self.max_drawdown_date = ''
+        self.max_gain_date = ''
 
     def register_transaction(self, verbose):
         '''
@@ -221,35 +228,38 @@ class Transaction:
                   Transakcja numer: {}, data otwarcia: {} ilosc akcji: {},
                   cena otwarcia {}, wartosc otwarcia: {:.2f},
                   prowizja otwarcia: {:.2f}, koszt otwarcia {:.2f}, 
-                  data stopa: {}, SL: {:.2f}, data zamknięcia: {}, 
-                  cena zamkn: {}, wartosc zamkn: {:.2f}, 
+                  poczatkowe ryzyko: {:.2f}, obecna wartosc {:.2f},
+                  data stopa: {}, SL: {:.2f},
+                  data zamknięcia: {}, cena zamkn: {}, wartosc zamkn: {:.2f}, 
                   prowizja zamkn: {:.2f}, koszt_zamkn: {:.2f}, 
                   wynik_transkacji: {:.2f}, maks obs. kapitału PLN: {:.2f},
-                  maks. obs. kapitalu %: {:.2f}, 
+                  maks. obs. kapitalu %: {:.2f}, data obs.: {}
                   maks. zysk chwilowy PLN: {:.2f}, 
-                  maks. zysk chwilowy %: {:.2f}
+                  maks. zysk chwilowy %: {:.2f}, data zysk: {}
                   '''.format(self.trans_id, self.open_date, self.stocks_number,
                              self.open_price, self.open_value,
-                             self.comm_open_value, self.open_total,
-                             self.stop_loss_date, self.stop_loss,
-                             self.close_date, self.close_price,
+                             self.comm_open_value, self.open_total, self.risk,
+                             self.current_value, self.stop_loss_date,
+                             self.stop_loss, self.close_date, self.close_price,
                              self.close_value, self.comm_close_value,
                              self.close_total, self.trans_result,
                              self.max_drawdown, self.max_drawdown_perc,
-                             self.max_gain, self.max_gain_perc)
+                             self.max_drawdown_date, self.max_gain,
+                             self.max_gain_perc, self.max_gain_date)
                   )
         row = [
             self.trans_id, self.open_date, self.stocks_number,
             self.open_price, self.open_value, self.comm_open_value,
-            self.open_total, self.stop_loss_date, self.stop_loss,
-            self.close_date, self.close_price, self.close_value,
-            self.comm_close_value, self.close_total, self.trans_result,
-            self.max_drawdown, self.max_drawdown_perc, self.max_gain,
-            self.max_gain_perc]
+            self.open_total, self. risk, self.current_value,
+            self.stop_loss_date, self.stop_loss, self.close_date,
+            self.close_price, self.close_value, self.comm_close_value,
+            self.close_total, self.trans_result, self.max_drawdown,
+            self.max_drawdown_perc, self.max_drawdown_date, self.max_gain,
+            self.max_gain_perc, self.max_gain_date]
         self.general_ledger.append(row)
 
         # Added on 02.08.2020 (EU date format)
-    def curr_value(self, price, be_verbose=False):
+    def curr_value(self, price, date, be_verbose=False):
         '''
         Method to calculate current value of opened trade
         '''
@@ -265,16 +275,22 @@ class Transaction:
                 self.max_drawdown = diff
                 #diff = self.max_drawdown - self.open_total
                 self.max_drawdown_perc = 100 * diff / self.open_total
+                self.max_drawdown_date = date
             if diff > self.max_gain:
                 self.max_gain = diff
                 #diff = self.max_gain - self.open_total
                 self.max_gain_perc = 100 * diff / self.open_total
+                self.max_gain_date = date
             if be_verbose:
                 print('Drowdawn: {:.2f} PLN {:.2f} %, \
-                        Max gain: {:.2f} PLN {:.2f} %'.format(self.max_drawdown,
-                                                      self.max_drawdown_perc,
-                                                      self.max_gain,
-                                                      self.max_gain_perc))
+                       Drowdawn date: {}, \
+                       Max gain: {:.2f} PLN {:.2f} % \
+                       gain datea: {}'.format(self.max_drawdown,
+                                              self.max_drawdown_perc,
+                                              self.max_drawdown_date,
+                                              self.max_gain,
+                                              self.max_gain_perc,
+                                              self.max_gain_date))
 
     def define_risk(self, verbose=False):
         '''
