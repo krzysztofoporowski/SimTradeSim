@@ -307,27 +307,27 @@ class Transaction:
             print('Initial risk: {:.2f} PLN, {:.2f}%'.format(self.risk,
                                                              risk_perc))
 
-# Added on 31.08.2020
+    # Added on 31.08.2020
 
-def show_trade(self):
-    '''
-    Function shows selected information on current trade.
-    '''
-    print('''
-            Open date: {} stock number: {}, open price {},
-            total open value {:.2f}, initial risk: {:.2f},
-            current value {:.2f}, SL date: {}, SL: {:.2f},
-            max drawdown PLN: {:.2f}, max drowdawn %: {:.2f},
-            drowdown date: {}, max gain PLN: {:.2f}, max gain %: {:.2f},
-            max gain date: {}
-            '''.format(self.open_date, self.stocks_number,
-                       self.open_price, self.open_total, self.risk,
-                       self.current_value, self.stop_loss_date,
-                       self.stop_loss, self.max_drawdown,
-                       self.max_drawdown_perc, self.max_drawdown_date,
-                       self.max_gain, self.max_gain_perc,
-                       self.max_gain_date)
-         )
+    def show_trade(self):
+        '''
+        Function shows selected information on current trade.
+        '''
+        print('''
+                Open date: {} stock number: {}, open price {},
+                total open value {:.2f}, initial risk: {:.2f},
+                current value {:.2f}, SL date: {}, SL: {:.2f},
+                max drawdown PLN: {:.2f}, max drowdawn %: {:.2f},
+                drowdown date: {}, max gain PLN: {:.2f}, max gain %: {:.2f},
+                max gain date: {}
+                '''.format(self.open_date, self.stocks_number,
+                        self.open_price, self.open_total, self.risk,
+                        self.current_value, self.stop_loss_date,
+                        self.stop_loss, self.max_drawdown,
+                        self.max_drawdown_perc, self.max_drawdown_date,
+                        self.max_gain, self.max_gain_perc,
+                        self.max_gain_date)
+            )
 
 if __name__ == '__main__':
     print('This is a module, do not run it, import it!')
