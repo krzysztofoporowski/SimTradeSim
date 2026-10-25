@@ -298,8 +298,8 @@ class Transaction:
         '''
         initial_stop = self.stocks_number * self.stop_loss
         comm = initial_stop * self.comm_rate
-        if comm < 3:
-            comm = 3
+        if comm < 14:
+            comm = 14
         initial_stop = initial_stop - comm
         self.risk = self.open_total - initial_stop
         risk_perc = -100 * self.risk / self.open_total
